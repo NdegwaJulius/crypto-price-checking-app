@@ -12,7 +12,8 @@ class PriceScreen extends StatefulWidget {
 }
 
 class _PriceScreenState extends State<PriceScreen> {
-  String  selectedCurrency = 'USD';
+  // Update the default currency to AUD, the first item in the currencyList.
+  String  selectedCurrency = 'AUD';
 
 
 
@@ -33,6 +34,9 @@ class _PriceScreenState extends State<PriceScreen> {
         setState(() {
           selectedCurrency = value!;
 
+          //2: Call getData() when the picker/dropdown changes.
+          getData();
+
       });
   },
     );
@@ -50,21 +54,27 @@ class _PriceScreenState extends State<PriceScreen> {
       itemExtent: 32.0,
       onSelectedItemChanged: (selectedIndex){
         print(selectedIndex);
+        setState(() {
+          // Save the selected currency to the property selectedCurrency
+          selectedCurrency  = currenciesList[selectedIndex];
+          // Call getData() when the picker/dropdown changes.
+          getData();
+        });
       },
       children:pickerItems,
 
     );
   }
-  //12. Create a variable to hold the value and use in our Text Widget. Give the variable a starting value of '?' before the data comes back from the async methods.
-  String bitcoinValueInUSD = '?';
+  Map<String?, String> coinValues = {};
+  bool isWaiting = false;
 
-  //11. Create an async method here await the coin data from coin_data.dart
   void getData() async {
+    isWaiting = true;
     try {
-      double data = await CoinData().getCoinData();
-      //13. We can't await in a setState(). So you have to separate it out into two steps.
+      var data = await CoinData().getCoinData(selectedCurrency);
+      isWaiting = false;
       setState(() {
-        bitcoinValueInUSD = data.toStringAsFixed(0);
+        coinValues = data;
       });
     } catch (e) {
       print(e);
@@ -74,10 +84,29 @@ class _PriceScreenState extends State<PriceScreen> {
   void initState() {
     // TODO: implement initState
     //14. Call getData() when the screen loads up. We can't call CoinData().getCoinData() directly here because we can't make initState() async.
-    getData();
     super.initState();
 
+    getData();
+
   }
+  Column makeCards() {
+    List<CryptoCard> cryptoCards = [];
+    for (String crypto in cryptoList) {
+      cryptoCards.add(
+        CryptoCard(
+          cryptoCurrency: 'BTC',
+          selectedCurrency: selectedCurrency,
+          value:  isWaiting ? '?' : coinValues['BTC']!,
+        ),
+      );
+
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: cryptoCards,
+    );
+  }
+
 
 
 
@@ -89,49 +118,56 @@ class _PriceScreenState extends State<PriceScreen> {
       appBar: AppBar(
         title: const Text('🤑 Coin Ticker'),
       ),
-      body: Column(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(18.0, 18.0, 18.0, 0),
-            child: Card(
-              color: Colors.lightBlueAccent,
-              elevation: 5.0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10.0),
-              ),
-              child:  Padding(
-                padding: EdgeInsets.symmetric(vertical: 15.0, horizontal: 28.0),
-                child: Text(
-                  '1 BTC = $bitcoinValueInUSD USD',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 20.0,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
+      body:  Column(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        makeCards(),
+        Container(
+          height: 150.0,
+          alignment: Alignment.center,
+          padding: EdgeInsets.only(bottom: 30.0),
+          color: Colors.lightBlue,
+          child: Platform.isIOS ? iOSPicker() : androidDropdown(),
+        ),
+      ],
+    ),
+    );
+  }
+}
+class CryptoCard extends StatelessWidget {
+  const CryptoCard({
+    required this.value,
+    required this.selectedCurrency,
+    required this.cryptoCurrency,
+  });
+
+  final String value;
+  final String selectedCurrency;
+  final String cryptoCurrency;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.fromLTRB(18.0, 18.0, 18.0, 0),
+      child: Card(
+        color: Colors.lightBlueAccent,
+        elevation: 5.0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10.0),
+        ),
+        child: Padding(
+          padding: EdgeInsets.symmetric(vertical: 15.0, horizontal: 28.0),
+          child: Text(
+            '1 $cryptoCurrency = $value $selectedCurrency',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 20.0,
+              color: Colors.white,
             ),
           ),
-          Container(
-            height: 150.0,
-            alignment: Alignment.center,
-            padding: const EdgeInsets.only(bottom: 30.0),
-            color: Colors.lightBlue,
-            child: Platform.isIOS ? iOSPicker() :androidDropdown()
-          ),
-        ],
+        ),
       ),
     );
   }
 }
-// DropdownButton(
-// value: selectedCurrency,
-// items: getDropdownItems(),
-// onChanged: ((value) {
-// setState(() {
-// selectedCurrency = value!;
-// });
-// print(value);
-// }),),
